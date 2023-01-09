@@ -62,6 +62,7 @@ class TestExample():
             for utt in data:
                 ex = cls(utt)
                 examples.append(ex)
+        examples = sorted(examples, key=lambda x: len(x.input_idx), reverse=True)
         return examples
 
     def __init__(self, ex: dict):

@@ -1,5 +1,6 @@
 #coding=utf8
 import sys, os, time, gc
+import json
 
 from torch.optim import Adam
 
@@ -57,6 +58,8 @@ def test():
     with torch.no_grad():
         for i in range(0, len(dataset), args.batch_size):
             cur_dataset = dataset[i:i + args.batch_size]
+            for ex in cur_dataset:
+                print('DEBUG: ', ex.utt)
             current_batch = from_example_list(args, cur_dataset, device, train=False)
             pred, label = model.inference(Example.label_vocab, current_batch)
             for j in range(len(current_batch)):
@@ -64,6 +67,19 @@ def test():
                     print(current_batch.utt[j], pred[j], label[j])
             predictions.extend(pred)
     print(predictions)
+    output = []
+    for i in range(len(predictions)):
+        curr_result = {}
+        curr_result["utt_id"] = 1
+        curr_result["asr_1best"] = dataset[i].utt
+        curr_result["pred"] = []
+        for action_slot in predictions[i]:
+            curr_result["pred"].append(action_slot.split('-'))
+        output.append([curr_result])
+    print(output)
+    with open('data/test_filled.json', 'w') as f:
+        json.dump(output, f, ensure_ascii=False)
+
 
 
 def decode(choice):
@@ -154,9 +170,3 @@ elif args.inference:
     model.load_state_dict(check_point['model'])
     start_time = time.time()
     test()
-    assert False
-    metrics, dev_loss = decode('dev')
-    dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
-    print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" %
-          (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
-           dev_fscore['fscore']))
