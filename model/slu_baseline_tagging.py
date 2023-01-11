@@ -80,7 +80,6 @@ class SLUTagging(nn.Module):
 
     def inference(self, label_vocab, batch):
         batch_size = len(batch)
-        labels = batch.labels
         prob = self._inference(batch)
         predictions = []
         for i in range(batch_size):

@@ -1,7 +1,5 @@
 #coding=utf8
 import sys, os, time, gc
-import json
-
 from torch.optim import Adam
 
 install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -13,7 +11,8 @@ from utils.example import Example
 from utils.example import TestExample
 from utils.batch import from_example_list
 from utils.vocab import PAD
-from model.slu_baseline_tagging import SLUTagging
+from model.bert_tagging import BERTTagging
+import json
 
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
@@ -22,6 +21,7 @@ device = set_torch_device(args.device)
 print("Initialization finished ...")
 print("Random seed is set to %d" % (args.seed))
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
+args.device = device
 
 start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train.json')
@@ -32,16 +32,16 @@ train_dataset = Example.load_dataset(train_path)
 dev_dataset = Example.load_dataset(dev_path)
 test_dataset = TestExample.load_dataset(test_path)
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
-print("Dataset size: train -> %d ; dev -> %d; test -> %d" % (len(train_dataset), len(dev_dataset), len(test_dataset)))
+print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
 
 args.vocab_size = Example.word_vocab.vocab_size
 args.pad_idx = Example.word_vocab[PAD]
 args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
-model = SLUTagging(args).to(device)
-Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
 
+model = BERTTagging(args).to(device)
+# Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
 
 def set_optimizer(model, args):
     params = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
@@ -50,49 +50,15 @@ def set_optimizer(model, args):
     return optimizer
 
 
-def test():
-    model.eval()
-    dataset = test_dataset
-    predictions= []
-    with torch.no_grad():
-        for i in range(0, len(dataset), args.batch_size):
-            cur_dataset = dataset[i:i + args.batch_size]
-            for ex in cur_dataset:
-                print('DEBUG: ', ex.utt)
-            current_batch = from_example_list(args, cur_dataset, device, train=False)
-            pred, label = model.inference(Example.label_vocab, current_batch)
-            for j in range(len(current_batch)):
-                if any([l.split('-')[-1] not in current_batch.utt[j] for l in pred[j]]):
-                    print(current_batch.utt[j], pred[j], label[j])
-            predictions.extend(pred)
-    print(predictions)
-    output = []
-    for i in range(len(predictions)):
-        curr_result = {}
-        curr_result["utt_id"] = 1
-        curr_result["asr_1best"] = dataset[i].utt
-        curr_result["pred"] = []
-        for action_slot in predictions[i]:
-            curr_result["pred"].append(action_slot.split('-'))
-        output.append([curr_result])
-    print(output)
-    with open('data/test_filled.json', 'w') as f:
-        json.dump(output, f, ensure_ascii=False,indent=4)
-
-
-
 def decode(choice):
     assert choice in ['train', 'dev']
     model.eval()
-    if choice == 'train':
-        dataset = train_dataset
-    elif choice == 'dev':
-        dataset = dev_dataset
+    dataset = train_dataset if choice == 'train' else dev_dataset
     predictions, labels = [], []
     total_loss, count = 0, 0
     with torch.no_grad():
         for i in range(0, len(dataset), args.batch_size):
-            cur_dataset = dataset[i:i + args.batch_size]
+            cur_dataset = dataset[i: i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             pred, label, loss = model.decode(Example.label_vocab, current_batch)
             for j in range(len(current_batch)):
@@ -106,6 +72,32 @@ def decode(choice):
     torch.cuda.empty_cache()
     gc.collect()
     return metrics, total_loss / count
+
+def test():
+    model.eval()
+    dataset = test_dataset
+    predictions= []
+    with torch.no_grad():
+        for i in range(0, len(dataset), args.batch_size):
+            cur_dataset = dataset[i:i + args.batch_size]
+            for ex in cur_dataset:
+                print('DEBUG: ', ex.utt)
+            current_batch = from_example_list(args, cur_dataset, device, train=False)
+            pred= model.inference(Example.label_vocab, current_batch)
+            predictions.extend(pred)
+    print(predictions)
+    output = []
+    for i in range(len(predictions)):
+        curr_result = {}
+        curr_result["utt_id"] = 1
+        curr_result["asr_1best"] = dataset[i].utt
+        curr_result["pred"] = []
+        for action_slot in predictions[i]:
+            curr_result["pred"].append(action_slot.split('-'))
+        output.append([curr_result])
+    print(output)
+    with open('data/test_filled_bert.json', 'w') as f:
+        json.dump(output, f, ensure_ascii=False,indent=4)
 
 
 if not (args.testing or args.inference):
@@ -122,7 +114,7 @@ if not (args.testing or args.inference):
         model.train()
         count = 0
         for j in range(0, nsamples, step_size):
-            cur_dataset = [train_dataset[k] for k in train_index[j:j + step_size]]
+            cur_dataset = [train_dataset[k] for k in train_index[j: j + step_size]]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             output, loss = model(current_batch)
             epoch_loss += loss.item()
@@ -130,31 +122,23 @@ if not (args.testing or args.inference):
             optimizer.step()
             optimizer.zero_grad()
             count += 1
-        print('Training: \tEpoch: %d\tTime: %.4f\tTraining Loss: %.4f' %
-              (i, time.time() - start_time, epoch_loss / count))
+        print('Training: \tEpoch: %d\tTime: %.4f\tTraining Loss: %.4f' % (i, time.time() - start_time, epoch_loss / count))
         torch.cuda.empty_cache()
         gc.collect()
 
         start_time = time.time()
         metrics, dev_loss = decode('dev')
         dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
-        print(
-            'Evaluation: \tEpoch: %d\tTime: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
-            (i, time.time() - start_time, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
+        print('Evaluation: \tEpoch: %d\tTime: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' % (i, time.time() - start_time, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
         if dev_acc > best_result['dev_acc']:
-            best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
-                'iter'] = dev_loss, dev_acc, dev_fscore, i
+            best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result['iter'] = dev_loss, dev_acc, dev_fscore, i
             torch.save({
-                'epoch': i,
-                'model': model.state_dict(),
+                'epoch': i, 'model': model.state_dict(),
                 'optim': optimizer.state_dict(),
-            }, open('model.bin', 'wb'))
-            print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
-                  (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
+            }, open('model_bert.bin', 'wb'))
+            print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' % (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
 
-    print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' %
-          (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'],
-           best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
+    print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' % (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'], best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
 elif args.testing:
     check_point = torch.load('model.bin')
     model.load_state_dict(check_point['model'])
@@ -165,7 +149,7 @@ elif args.testing:
           (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
            dev_fscore['fscore']))
 elif args.inference:
-    check_point = torch.load('model.bin')
+    check_point = torch.load('model_bert_best.bin')
     model.load_state_dict(check_point['model'])
     start_time = time.time()
     test()
