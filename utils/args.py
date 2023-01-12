@@ -19,6 +19,7 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('--testing', action='store_true', help='training or evaluation mode')
     arg_parser.add_argument('--inference', action='store_true', help='inference')
     arg_parser.add_argument('--segmentation', action='store_true', help='inference')
+    arg_parser.add_argument('-m','--model', type=str,default='model.bin', help='the path to store/load model')
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')
     arg_parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')

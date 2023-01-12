@@ -157,7 +157,7 @@ if not (args.testing or args.inference):
                 'epoch': i,
                 'model': model.state_dict(),
                 'optim': optimizer.state_dict(),
-            }, open('model_sgns_wiki.bin', 'wb'))
+            }, open(args.model, 'wb'))
             print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
                   (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
 
@@ -165,7 +165,7 @@ if not (args.testing or args.inference):
           (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'],
            best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
 elif args.testing:
-    check_point = torch.load('model_seg_72.18.bin')
+    check_point = torch.load(args.model)
     model.load_state_dict(check_point['model'])
     start_time = time.time()
     metrics, dev_loss = decode('dev')
@@ -174,7 +174,7 @@ elif args.testing:
           (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
            dev_fscore['fscore']))
 elif args.inference:
-    check_point = torch.load('model_seg_72.18.bin')
+    check_point = torch.load(args.model)
     model.load_state_dict(check_point['model'])
     start_time = time.time()
     test()
