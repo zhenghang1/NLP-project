@@ -9,8 +9,7 @@ sys.path.append(install_path)
 
 from utils.args import init_args
 from utils.initialization import *
-from utils.example import Example
-from utils.example import TestExample
+from utils.example import Example,DevExample,TestExample
 from utils.batch import from_example_list
 from utils.vocab import PAD
 from model.slu_baseline_tagging import SLUTagging
@@ -27,12 +26,25 @@ start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
-Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
-train_dataset = Example.load_dataset(train_path)
-dev_dataset = Example.load_dataset(dev_path)
-test_dataset = TestExample.load_dataset(test_path)
+# HERE
+if not args.segmentation:
+    Example.configuration(args.dataroot, train_path=train_path, embedding_path=args.embedding_path, segmentation=False)
+    DevExample.configuration(segmentation=False)
+else:
+    Example.configuration(args.dataroot, train_path=train_path, embedding_path=args.embedding_path, segmentation=True)
+    DevExample.configuration(segmentation=True)
+
+if not (args.testing or args.inference):
+    train_dataset = Example.load_dataset(train_path)
+    dev_dataset = DevExample.load_dataset(dev_path)
+    print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
+elif args.testing:
+    dev_dataset = DevExample.load_dataset(dev_path)
+    print("Dataset size: dev -> %d" % (len(dev_dataset)))
+else:
+    test_dataset = TestExample.load_dataset(test_path)
+    print("Dataset size: test -> %d" % (len(test_dataset)))
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
-print("Dataset size: train -> %d ; dev -> %d; test -> %d" % (len(train_dataset), len(dev_dataset), len(test_dataset)))
 
 args.vocab_size = Example.word_vocab.vocab_size
 args.pad_idx = Example.word_vocab[PAD]
@@ -40,7 +52,7 @@ args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
 model = SLUTagging(args).to(device)
-Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
+Example.embedding.load_embeddings(model.word_embed, Example.word_vocab, args.embedding_path, device=device)
 
 
 def set_optimizer(model, args):
@@ -60,17 +72,18 @@ def test():
             for ex in cur_dataset:
                 print('DEBUG: ', ex.utt)
             current_batch = from_example_list(args, cur_dataset, device, train=False)
-            pred, label = model.inference(Example.label_vocab, current_batch)
-            for j in range(len(current_batch)):
-                if any([l.split('-')[-1] not in current_batch.utt[j] for l in pred[j]]):
-                    print(current_batch.utt[j], pred[j], label[j])
+            pred = model.inference(Example.label_vocab, current_batch)
             predictions.extend(pred)
     print(predictions)
     output = []
     for i in range(len(predictions)):
         curr_result = {}
         curr_result["utt_id"] = 1
-        curr_result["asr_1best"] = dataset[i].utt
+        # HERE
+        if not args.segmentation:
+            curr_result["asr_1best"] = dataset[i].utt
+        else:
+            curr_result["asr_1best"] = dataset[i].utt_uncut
         curr_result["pred"] = []
         for action_slot in predictions[i]:
             curr_result["pred"].append(action_slot.split('-'))
@@ -78,7 +91,6 @@ def test():
     print(output)
     with open('data/test_filled.json', 'w') as f:
         json.dump(output, f, ensure_ascii=False,indent=4)
-
 
 
 def decode(choice):
@@ -95,9 +107,6 @@ def decode(choice):
             cur_dataset = dataset[i:i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             pred, label, loss = model.decode(Example.label_vocab, current_batch)
-            for j in range(len(current_batch)):
-                if any([l.split('-')[-1] not in current_batch.utt[j] for l in pred[j]]):
-                    print(current_batch.utt[j], pred[j], label[j])
             predictions.extend(pred)
             labels.extend(label)
             total_loss += loss
@@ -148,7 +157,7 @@ if not (args.testing or args.inference):
                 'epoch': i,
                 'model': model.state_dict(),
                 'optim': optimizer.state_dict(),
-            }, open('model.bin', 'wb'))
+            }, open('model_sgns_wiki.bin', 'wb'))
             print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
                   (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
 
@@ -156,7 +165,7 @@ if not (args.testing or args.inference):
           (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'],
            best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
 elif args.testing:
-    check_point = torch.load('model.bin')
+    check_point = torch.load('model_seg_72.18.bin')
     model.load_state_dict(check_point['model'])
     start_time = time.time()
     metrics, dev_loss = decode('dev')
@@ -165,7 +174,7 @@ elif args.testing:
           (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
            dev_fscore['fscore']))
 elif args.inference:
-    check_point = torch.load('model.bin')
+    check_point = torch.load('model_seg_72.18.bin')
     model.load_state_dict(check_point['model'])
     start_time = time.time()
     test()

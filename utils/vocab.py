@@ -1,5 +1,6 @@
 #coding=utf8
 import os, json
+import jieba
 
 PAD = '<pad>'
 UNK = '<unk>'
@@ -32,6 +33,22 @@ class Vocab():
                 text = utt['manual_transcript']
                 for char in text:
                     word_freq[char] = word_freq.get(char, 0) + 1
+        for word in word_freq:
+            if word_freq[word] >= min_freq:
+                idx = len(self.word2id)
+                self.word2id[word], self.id2word[idx] = idx, word
+
+    # HERE
+    def from_train_segmentation(self, filepath, min_freq=1):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            trains = json.load(f)
+        word_freq = {}
+        for data in trains:
+            for utt in data:
+                text = utt['manual_transcript']
+                seg_list = jieba.lcut(text,cut_all=True)
+                for word in seg_list:
+                    word_freq[word] = word_freq.get(word, 0) + 1
         for word in word_freq:
             if word_freq[word] >= min_freq:
                 idx = len(self.word2id)

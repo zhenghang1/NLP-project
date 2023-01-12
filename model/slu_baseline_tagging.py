@@ -106,7 +106,7 @@ class SLUTagging(nn.Module):
                 value = ''.join([batch.utt[i][j] for j in idx_buff])
                 pred_tuple.append(f'{slot}-{value}')
             predictions.append(pred_tuple)
-        return predictions, labels
+        return predictions
 
 
 class TaggingFNNDecoder(nn.Module):

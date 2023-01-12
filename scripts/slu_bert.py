@@ -27,12 +27,18 @@ start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
-Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
-train_dataset = Example.load_dataset(train_path)
-dev_dataset = Example.load_dataset(dev_path)
-test_dataset = TestExample.load_dataset(test_path)
+Example.configuration(args.dataroot, train_path=train_path, embedding_path=args.embedding_path)
+if not (args.testing or args.inference):
+    train_dataset = Example.load_dataset(train_path)
+    dev_dataset = Example.load_dataset(dev_path)
+    print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
+elif args.testing:
+    dev_dataset = Example.load_dataset(dev_path)
+    print("Dataset size: dev -> %d" % (len(dev_dataset)))
+else:
+    test_dataset = TestExample.load_dataset(test_path)
+    print("Dataset size: test -> %d" % (len(test_dataset)))
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
-print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
 
 args.vocab_size = Example.word_vocab.vocab_size
 args.pad_idx = Example.word_vocab[PAD]
@@ -41,7 +47,6 @@ args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
 
 model = BERTTagging(args).to(device)
-# Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
 
 def set_optimizer(model, args):
     params = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
@@ -140,7 +145,7 @@ if not (args.testing or args.inference):
 
     print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' % (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'], best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
 elif args.testing:
-    check_point = torch.load('model.bin')
+    check_point = torch.load('model_bert_best.bin')
     model.load_state_dict(check_point['model'])
     start_time = time.time()
     metrics, dev_loss = decode('dev')
@@ -151,5 +156,4 @@ elif args.testing:
 elif args.inference:
     check_point = torch.load('model_bert_best.bin')
     model.load_state_dict(check_point['model'])
-    start_time = time.time()
     test()
