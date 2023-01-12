@@ -8,8 +8,9 @@ class EmbeddingUtils():
 
     def __init__(self, embedding_file):
         super(EmbeddingUtils, self).__init__()
-        self.embedding = {}
-        self.read_from_file(embedding_file)
+        if not embedding_file.startswith('bert'):
+            self.embedding = {}
+            self.read_from_file(embedding_file)
 
     def load_embeddings(self, module, vocab, embed, device='cpu'):
         """ Initialize the embedding with glove and char embedding

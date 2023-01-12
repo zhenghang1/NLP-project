@@ -13,6 +13,7 @@ from utils.example import Example,DevExample,TestExample
 from utils.batch import from_example_list
 from utils.vocab import PAD
 from model.slu_baseline_tagging import SLUTagging
+from model.bert_tagging import BERTTagging
 
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
@@ -28,10 +29,10 @@ dev_path = os.path.join(args.dataroot, 'development.json')
 test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
 # HERE
 if not args.segmentation:
-    Example.configuration(args.dataroot, train_path=train_path, embedding_path=args.embedding_path, segmentation=False)
+    Example.configuration(args.dataroot, train_path=train_path, embedding_path=args.embedding, segmentation=False)
     DevExample.configuration(segmentation=False)
 else:
-    Example.configuration(args.dataroot, train_path=train_path, embedding_path=args.embedding_path, segmentation=True)
+    Example.configuration(args.dataroot, train_path=train_path, embedding_path=args.embedding, segmentation=True)
     DevExample.configuration(segmentation=True)
 
 if not (args.testing or args.inference):
@@ -51,9 +52,17 @@ args.pad_idx = Example.word_vocab[PAD]
 args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
-model = SLUTagging(args).to(device)
-Example.embedding.load_embeddings(model.word_embed, Example.word_vocab, args.embedding_path, device=device)
-
+if args.embedding=='bert_model':
+    model = BERTTagging(args).to(device)
+elif args.embedding=='bert_as_embed':
+    args.bert_as_embed = True
+    model = BERTTagging(args).to(device)
+elif args.embedding=='bert_model_with_rnn':
+    args.use_rnn = True
+    model = BERTTagging(args).to(device)
+else:
+    model = SLUTagging(args).to(device)
+    Example.embedding.load_embeddings(model.word_embed, Example.word_vocab, args.embedding, device=device)    
 
 def set_optimizer(model, args):
     params = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
