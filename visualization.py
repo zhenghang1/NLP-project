@@ -2,11 +2,16 @@ import os
 import matplotlib.pyplot as plt
 import pickle
 
-exp_dir = 'exp'
-files = ['BERT-0.001', 'WORD2V-LSTM']
+#>>>> set args here >>>
+files = ['BERT-1e-05', 'WORD2V-LSTM']
 labels = ['BERT', 'BASE']
+color = ['r', 'b']
+#>>>>>>>>>>>>>>>>>>>>>>
+figname = ' vs. '.join(files) + '.png'
+exp_dir = 'exp'
+vis_dir = 'vis'
+os.makedirs(vis_dir, exist_ok=True)
 results = []
-color = ['r', 'g']
 for file in files:
     file = os.path.join(exp_dir, file)
     with open(file, 'rb') as f:
@@ -28,4 +33,4 @@ for i, result in enumerate(results):
     inst += inst1 + inst2
 legends = [line.get_label() for line in inst]
 plt.legend(inst, legends, loc='center right', frameon=True)
-plt.savefig('tmp.png')
+plt.savefig(os.path.join(vis_dir, figname))
