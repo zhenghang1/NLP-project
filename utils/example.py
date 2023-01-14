@@ -5,6 +5,7 @@ from utils.word2vec import EmbeddingUtils
 from utils.evaluator import Evaluator
 import jieba
 
+
 class Example():
 
     @classmethod
@@ -54,11 +55,11 @@ class Example():
             self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]
         else:
             utt_uncut = ex['manual_transcript']
-            self.utt = jieba.lcut(utt_uncut,cut_all=False)
+            self.utt = jieba.lcut(utt_uncut, cut_all=False)
             idx = []
             for word in self.utt:
                 idx.append(utt_uncut.find(word))
-            
+
             self.slot = {}
             for label in ex['semantic']:
                 act_slot = f'{label[0]}-{label[1]}'
@@ -67,12 +68,12 @@ class Example():
                     value_idx = utt_uncut.find(value)
                     value_list = []
                     for i in range(len(idx)):
-                        if value_idx<=idx[i] and value_idx+len(value)>idx[i]:
-                            value_list.append(self.utt[i]) 
+                        if value_idx <= idx[i] and value_idx + len(value) > idx[i]:
+                            value_list.append(self.utt[i])
                     self.slot[act_slot] = value_list
             self.tags = ['O'] * len(self.utt)
             for slot in self.slot:
-                value = self.slot.get(slot,None)
+                value = self.slot.get(slot, None)
                 if not value:
                     continue
                 if value[0] in self.utt:
@@ -80,15 +81,17 @@ class Example():
                 else:
                     bidx = -1
                 if bidx != -1:
-                    self.tags[bidx: bidx + len(value)] = [f'I-{slot}'] * len(value)
+                    self.tags[bidx:bidx + len(value)] = [f'I-{slot}'] * len(value)
                     self.tags[bidx] = f'B-{slot}'
             self.slotvalue = [f'{slot}-{"".join(value)}' for slot, value in self.slot.items()]
             self.input_idx = [Example.word_vocab[c] for c in self.utt]
             l = Example.label_vocab
             self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]
 
+
 # HERE
 class DevExample():
+
     @classmethod
     def configuration(cls, segmentation=False):
         cls.segmentation = segmentation
@@ -120,7 +123,7 @@ class DevExample():
                 value = self.slot[slot]
                 bidx = self.utt.find(value)
                 if bidx != -1:
-                    self.tags[bidx: bidx + len(value)] = [f'I-{slot}'] * len(value)
+                    self.tags[bidx:bidx + len(value)] = [f'I-{slot}'] * len(value)
                     self.tags[bidx] = f'B-{slot}'
             self.slotvalue = [f'{slot}-{value}' for slot, value in self.slot.items()]
             self.input_idx = [Example.word_vocab[c] for c in self.utt]
@@ -128,11 +131,11 @@ class DevExample():
             self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]
         else:
             utt_uncut = ex['asr_1best']
-            self.utt = jieba.lcut(utt_uncut,cut_all=False)
+            self.utt = jieba.lcut(utt_uncut, cut_all=False)
             idx = []
             for word in self.utt:
                 idx.append(utt_uncut.find(word))
-            
+
             self.slot = {}
             for label in ex['semantic']:
                 act_slot = f'{label[0]}-{label[1]}'
@@ -141,12 +144,12 @@ class DevExample():
                     value_idx = utt_uncut.find(value)
                     value_list = []
                     for i in range(len(idx)):
-                        if value_idx<=idx[i] and value_idx+len(value)>idx[i]:
-                            value_list.append(self.utt[i]) 
+                        if value_idx <= idx[i] and value_idx + len(value) > idx[i]:
+                            value_list.append(self.utt[i])
                     self.slot[act_slot] = value_list
             self.tags = ['O'] * len(self.utt)
             for slot in self.slot:
-                value = self.slot.get(slot,None)
+                value = self.slot.get(slot, None)
                 if not value:
                     continue
                 if value[0] in self.utt:
@@ -154,7 +157,7 @@ class DevExample():
                 else:
                     bidx = -1
                 if bidx != -1:
-                    self.tags[bidx: bidx + len(value)] = [f'I-{slot}'] * len(value)
+                    self.tags[bidx:bidx + len(value)] = [f'I-{slot}'] * len(value)
                     self.tags[bidx] = f'B-{slot}'
             self.slotvalue = [f'{slot}-{"".join(value)}' for slot, value in self.slot.items()]
             self.input_idx = [Example.word_vocab[c] for c in self.utt]
@@ -163,6 +166,7 @@ class DevExample():
 
 
 class TestExample():
+
     @classmethod
     def load_dataset(cls, data_path):
         datas = json.load(open(data_path, 'r', encoding='utf-8'))
@@ -185,8 +189,8 @@ class TestExample():
             self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]
         else:
             self.utt_uncut = ex['asr_1best']
-            self.utt = jieba.lcut(self.utt_uncut,cut_all=False)
+            self.utt = jieba.lcut(self.utt_uncut, cut_all=False)
             self.tags = ['O'] * len(self.utt)
             self.input_idx = [Example.word_vocab[c] for c in self.utt]
             l = Example.label_vocab
-            self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]                     
+            self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]

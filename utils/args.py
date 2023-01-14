@@ -15,10 +15,10 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('--dataroot', default='./data', help='root of data')
     arg_parser.add_argument('--embedding', default='./word2vec-768.txt', help='path of embedding file path')
     arg_parser.add_argument('--seed', default=999, type=int, help='Random seed')
-    arg_parser.add_argument('--device', type=int, default=0, help='Use which device: -1 -> cpu ; the index of gpu o.w.')
+    arg_parser.add_argument('--device', type=int, default=-1, help='Use which device: -1 -> cpu ; the index of gpu o.w.')
     arg_parser.add_argument('--testing', action='store_true', help='training or evaluation mode')
     arg_parser.add_argument('--inference', action='store_true', help='inference')
-    arg_parser.add_argument('--segmentation', action='store_true', help='inference')
+    arg_parser.add_argument('--segmentation', action='store_true', help='use JIEBA segmentation')
     arg_parser.add_argument('-m','--model', type=str,default='model.bin', help='the path to store/load model')
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')
