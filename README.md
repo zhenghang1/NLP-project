@@ -51,6 +51,14 @@
   ```
   python scripts/slu_baseline.py --inference --model best_model.bin --embedding bert_model
   ```
+- 可视化脚本
+
+  > 需要先生成训练结果（每次训练完成后自动生成），并在visualization里设置可视化对象。
+  >
+
+  ```
+  python script/visualization.py
+  ```
 
 
 ### 代码说明
