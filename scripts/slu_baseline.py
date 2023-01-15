@@ -29,7 +29,7 @@ print("Random seed is set to %d" % (args.seed),flush=True)
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device",flush=True)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train_original.json')
+train_path = os.path.join(args.dataroot, args.train_file)
 dev_path = os.path.join(args.dataroot, 'development.json')
 test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
 exp_name = []
