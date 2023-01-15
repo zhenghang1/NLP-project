@@ -3,6 +3,8 @@ import sys, os, time, gc
 import json
 
 from torch.optim import Adam
+from transformers import AdamW
+import transformers
 
 install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(install_path)
@@ -19,12 +21,12 @@ from model.bert_tagging import BERTTagging
 args = init_args(sys.argv[1:])
 set_random_seed(args.seed)
 device = set_torch_device(args.device)
-print("Initialization finished ...")
-print("Random seed is set to %d" % (args.seed))
-print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
+print("Initialization finished ...",flush=True)
+print("Random seed is set to %d" % (args.seed),flush=True)
+print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device",flush=True)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train.json')
+train_path = os.path.join(args.dataroot, 'train_original.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
 # HERE
@@ -38,14 +40,14 @@ else:
 if not (args.testing or args.inference):
     train_dataset = Example.load_dataset(train_path)
     dev_dataset = DevExample.load_dataset(dev_path)
-    print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
+    print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)),flush=True)
 elif args.testing:
     dev_dataset = DevExample.load_dataset(dev_path)
-    print("Dataset size: dev -> %d" % (len(dev_dataset)))
+    print("Dataset size: dev -> %d" % (len(dev_dataset)),flush=True)
 else:
     test_dataset = TestExample.load_dataset(test_path)
-    print("Dataset size: test -> %d" % (len(test_dataset)))
-print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
+    print("Dataset size: test -> %d" % (len(test_dataset)),flush=True)
+print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time),flush=True)
 
 args.vocab_size = Example.word_vocab.vocab_size
 args.pad_idx = Example.word_vocab[PAD]
@@ -56,6 +58,7 @@ if args.embedding=='bert_model':
     model = BERTTagging(args).to(device)
 elif args.embedding=='bert_as_embed':
     args.bert_as_embed = True
+    args.use_rnn = True
     model = BERTTagging(args).to(device)
 elif args.embedding=='bert_model_with_rnn':
     args.use_rnn = True
@@ -64,11 +67,21 @@ else:
     model = SLUTagging(args).to(device)
     Example.embedding.load_embeddings(model.word_embed, Example.word_vocab, args.embedding, device=device)    
 
+# HERE
 def set_optimizer(model, args):
     params = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
     grouped_params = [{'params': list(set([p for n, p in params]))}]
-    optimizer = Adam(grouped_params, lr=args.lr)
-    return optimizer
+    # Weight decay and bias correction
+    if args.weight_decay:
+        optimizer = AdamW(grouped_params, lr=args.lr, weight_decay=0.01,correct_bias=True)
+    else:
+        optimizer = AdamW(grouped_params, lr=args.lr,correct_bias=True)
+    total_steps = len(train_dataset)/args.batch_size * args.max_epoch
+    scheduler = transformers.optimization.get_polynomial_decay_schedule_with_warmup(optimizer,
+                                                                        num_warmup_steps=0,
+                                                                        num_training_steps=total_steps,
+                                                                        )
+    return optimizer,scheduler
 
 
 def test():
@@ -78,12 +91,9 @@ def test():
     with torch.no_grad():
         for i in range(0, len(dataset), args.batch_size):
             cur_dataset = dataset[i:i + args.batch_size]
-            for ex in cur_dataset:
-                print('DEBUG: ', ex.utt)
             current_batch = from_example_list(args, cur_dataset, device, train=False)
             pred = model.inference(Example.label_vocab, current_batch)
             predictions.extend(pred)
-    print(predictions)
     output = []
     for i in range(len(predictions)):
         curr_result = {}
@@ -97,7 +107,6 @@ def test():
         for action_slot in predictions[i]:
             curr_result["pred"].append(action_slot.split('-'))
         output.append([curr_result])
-    print(output)
     with open('data/test_filled.json', 'w') as f:
         json.dump(output, f, ensure_ascii=False,indent=4)
 
@@ -128,11 +137,11 @@ def decode(choice):
 
 if not (args.testing or args.inference):
     num_training_steps = ((len(train_dataset) + args.batch_size - 1) // args.batch_size) * args.max_epoch
-    print('Total training steps: %d' % (num_training_steps))
-    optimizer = set_optimizer(model, args)
+    print('Total training steps: %d' % (num_training_steps),flush=True)
+    optimizer, scheduler = set_optimizer(model, args)
     nsamples, best_result = len(train_dataset), {'dev_acc': 0., 'dev_f1': 0.}
     train_index, step_size = np.arange(nsamples), args.batch_size
-    print('Start training ......')
+    print('Start training ......',flush=True)
     for i in range(args.max_epoch):
         start_time = time.time()
         epoch_loss = 0
@@ -146,10 +155,11 @@ if not (args.testing or args.inference):
             epoch_loss += loss.item()
             loss.backward()
             optimizer.step()
+            scheduler.step()
             optimizer.zero_grad()
             count += 1
         print('Training: \tEpoch: %d\tTime: %.4f\tTraining Loss: %.4f' %
-              (i, time.time() - start_time, epoch_loss / count))
+              (i, time.time() - start_time, epoch_loss / count),flush=True)
         torch.cuda.empty_cache()
         gc.collect()
 
@@ -158,7 +168,7 @@ if not (args.testing or args.inference):
         dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
         print(
             'Evaluation: \tEpoch: %d\tTime: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
-            (i, time.time() - start_time, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
+            (i, time.time() - start_time, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']),flush=True)
         if dev_acc > best_result['dev_acc']:
             best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
                 'iter'] = dev_loss, dev_acc, dev_fscore, i
@@ -168,11 +178,11 @@ if not (args.testing or args.inference):
                 'optim': optimizer.state_dict(),
             }, open(args.model, 'wb'))
             print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
-                  (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
+                  (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']),flush=True)
 
     print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' %
           (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'],
-           best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
+           best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']),flush=True)
 elif args.testing:
     check_point = torch.load(args.model)
     model.load_state_dict(check_point['model'])
@@ -181,7 +191,7 @@ elif args.testing:
     dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
     print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" %
           (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
-           dev_fscore['fscore']))
+           dev_fscore['fscore']),flush=True)
 elif args.inference:
     check_point = torch.load(args.model)
     model.load_state_dict(check_point['model'])

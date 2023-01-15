@@ -10,7 +10,6 @@ class Example():
     @classmethod
     def configuration(cls, root, train_path=None, embedding_path=None, segmentation=False):
         cls.evaluator = Evaluator()
-        # HERE
         cls.segmentation = segmentation
         if not segmentation:
             cls.word_vocab = Vocab(padding=True, unk=True, filepath=train_path)
@@ -33,9 +32,8 @@ class Example():
     def __init__(self, ex: dict):
         super(Example, self).__init__()
         self.ex = ex
-        # HERE
         if not self.segmentation:
-            self.utt = ex['manual_transcript']
+            self.utt = self.preprocessing(ex['manual_transcript'])
             self.slot = {}
             for label in ex['semantic']:
                 act_slot = f'{label[0]}-{label[1]}'
@@ -53,7 +51,7 @@ class Example():
             l = Example.label_vocab
             self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]
         else:
-            utt_uncut = ex['manual_transcript']
+            utt_uncut = self.preprocessing(ex['manual_transcript'])
             self.utt = jieba.lcut(utt_uncut,cut_all=False)
             idx = []
             for word in self.utt:
@@ -87,7 +85,15 @@ class Example():
             l = Example.label_vocab
             self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]
 
-# HERE
+    def preprocessing(self, utt):
+        if utt.find('(')!= -1:
+            utt.replace("(unknown)","")
+            utt.replace("(side)","")
+            utt.replace("(robot)","")
+            utt.replace("(noise)","")
+            utt.replace("(dialect)","")
+        return utt
+        
 class DevExample():
     @classmethod
     def configuration(cls, segmentation=False):
@@ -107,7 +113,6 @@ class DevExample():
     def __init__(self, ex: dict):
         super(DevExample, self).__init__()
         self.ex = ex
-        # HERE
         if not self.segmentation:
             self.utt = ex['asr_1best']
             self.slot = {}

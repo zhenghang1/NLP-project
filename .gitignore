@@ -6,3 +6,7 @@
 *.sh
 *copy*
 **/embedding**
+job.py
+test.slurm
+*.err
+*.out

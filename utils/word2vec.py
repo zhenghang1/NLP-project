@@ -21,10 +21,10 @@ class EmbeddingUtils():
             if word == PAD: # PAD symbol is always 0-vector
                 module.weight.data[vocab[PAD]] = torch.zeros(emb_size, dtype=torch.float, device=device)
                 continue
-            if embed == 'embedding/word2vec-768.txt':
+            if embed == 'word2vec-768.txt':
                 word_emb = self.embedding.get(word, self.embedding[UNK])
             else:
-                word_emb = self.embedding.get(word, self.embedding['空'])
+                word_emb = self.embedding.get(word, self.embedding['未知'])
             module.weight.data[vocab[word]] = torch.tensor(word_emb, dtype=torch.float, device=device)
         return 1 - outliers / float(len(vocab))
 
