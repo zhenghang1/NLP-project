@@ -4,8 +4,9 @@ from transformers import BertModel, BertTokenizer
 import torch.nn.utils.rnn as rnn_utils
 from model.slu_baseline_tagging import TaggingFNNDecoder
 
+
 class BERTTagging(nn.Module):
-    
+
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -18,7 +19,11 @@ class BERTTagging(nn.Module):
         self.tag_pad_idx = self.tokenizer.pad_token_id
         self.dense = nn.Linear(embed_size * 2, embed_size)
         if getattr(self.config, "use_rnn", False):
-            self.rnn = getattr(nn, config.encoder_cell)(embed_size, config.hidden_size // 2, num_layers=config.num_layer, bidirectional=True, batch_first=True)
+            self.rnn = getattr(nn, config.encoder_cell)(embed_size,
+                                                        config.hidden_size // 2,
+                                                        num_layers=config.num_layer,
+                                                        bidirectional=True,
+                                                        batch_first=True)
             embed_size = config.hidden_size
         self.output_layer = TaggingFNNDecoder(embed_size, config.num_tags, self.tag_pad_idx)
 
@@ -27,32 +32,42 @@ class BERTTagging(nn.Module):
         tag_mask = []
         input_ids = []
         for text in batch.utt:
-            tokens = self.tokenizer.encode_plus(text, add_special_tokens=False, max_length=batch.max_len, pad_to_max_length=True, return_attention_mask=True)
+            tokens = self.tokenizer.encode_plus(text,
+                                                add_special_tokens=False,
+                                                max_length=batch.max_len,
+                                                pad_to_max_length=True,
+                                                return_attention_mask=True)
             mask = tokens["attention_mask"]
             ids = tokens["input_ids"]
             tag_mask.append(mask)
             input_ids.append(ids)
         tag_mask = torch.tensor(tag_mask, dtype=torch.float, device="cuda")
         input_ids = torch.tensor(input_ids, dtype=torch.long, device="cuda")
-        bert_out = self.bert(input_ids=input_ids, attention_mask=tag_mask,output_hidden_states=True)
+        bert_out = self.bert(input_ids=input_ids, attention_mask=tag_mask, output_hidden_states=True)
         hiddens = bert_out.last_hidden_state
-        
+
         if getattr(self.config, "bert_as_embed", False):
             hiddens = hiddens.detach()
         if getattr(self.config, "use_rnn", False):
-            packed_inputs = rnn_utils.pack_padded_sequence(hiddens, batch.lengths, batch_first=True, enforce_sorted=True)
+            packed_inputs = rnn_utils.pack_padded_sequence(hiddens,
+                                                           batch.lengths,
+                                                           batch_first=True,
+                                                           enforce_sorted=True)
             packed_rnn_out, h_t_c_t = self.rnn(packed_inputs)  # bsize x seqlen x dim
             hiddens, unpacked_len = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)
             hiddens = self.dropout_layer(hiddens)
         tag_output = self.output_layer(hiddens, tag_mask, tag_ids)
         return tag_output
 
-    def _inference(self,batch):
+    def _inference(self, batch):
         input_ids = []
         attention_mask = []
         for text in batch.utt:
-            tokens = self.tokenizer.encode_plus(text, add_special_tokens=False, truncation = True,
-                                                max_length=batch.max_len, padding=True, 
+            tokens = self.tokenizer.encode_plus(text,
+                                                add_special_tokens=False,
+                                                truncation=True,
+                                                max_length=batch.max_len,
+                                                padding='max_length',
                                                 return_attention_mask=True)
             mask = tokens["attention_mask"]
             ids = tokens["input_ids"]
@@ -62,10 +77,9 @@ class BERTTagging(nn.Module):
         attention_mask = torch.tensor(attention_mask, dtype=torch.float, device=self.device)
         bert_out = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         hiddens = self.dropout_layer(bert_out.last_hidden_state)
-        tag_output = self.output_layer(hiddens,attention_mask)
+        tag_output = self.output_layer(hiddens, attention_mask)
         return tag_output
 
-    
     def decode(self, label_vocab, batch):
         batch_size = len(batch)
         labels = batch.labels

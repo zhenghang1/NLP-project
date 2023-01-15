@@ -24,9 +24,9 @@ args = init_args(sys.argv[1:])
 set_random_seed(args.seed)
 device = set_torch_device(args.device)
 print(f">>>> DEVICE: {device}")
-print("Initialization finished ...",flush=True)
-print("Random seed is set to %d" % (args.seed),flush=True)
-print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device",flush=True)
+print("Initialization finished ...", flush=True)
+print("Random seed is set to %d" % (args.seed), flush=True)
+print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device", flush=True)
 
 start_time = time.time()
 train_path = os.path.join(args.dataroot, args.train_file)
@@ -49,14 +49,14 @@ if not (args.testing or args.inference):
     else:
         train_dataset = Example.load_dataset(train_path)
     dev_dataset = DevExample.load_dataset(dev_path)
-    print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)),flush=True)
+    print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)), flush=True)
 elif args.testing:
     dev_dataset = DevExample.load_dataset(dev_path)
-    print("Dataset size: dev -> %d" % (len(dev_dataset)),flush=True)
+    print("Dataset size: dev -> %d" % (len(dev_dataset)), flush=True)
 else:
     test_dataset = TestExample.load_dataset(test_path)
-    print("Dataset size: test -> %d" % (len(test_dataset)),flush=True)
-print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time),flush=True)
+    print("Dataset size: test -> %d" % (len(test_dataset)), flush=True)
+print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time), flush=True)
 
 args.vocab_size = Example.word_vocab.vocab_size
 args.pad_idx = Example.word_vocab[PAD]
@@ -91,15 +91,16 @@ def set_optimizer(model, args):
     grouped_params = [{'params': list(set([p for n, p in params]))}]
     # Weight decay and bias correction
     if args.weight_decay:
-        optimizer = AdamW(grouped_params, lr=args.lr, weight_decay=0.001,correct_bias=True)
+        optimizer = AdamW(grouped_params, lr=args.lr, weight_decay=0.001, correct_bias=True)
     else:
-        optimizer = AdamW(grouped_params, lr=args.lr,correct_bias=True)
-    total_steps = len(train_dataset)/args.batch_size * args.max_epoch
-    scheduler = transformers.optimization.get_polynomial_decay_schedule_with_warmup(optimizer,
-                                                                        num_warmup_steps=0,
-                                                                        num_training_steps=total_steps,
-                                                                        )
-    return optimizer,scheduler
+        optimizer = AdamW(grouped_params, lr=args.lr, correct_bias=True)
+    total_steps = len(train_dataset) / args.batch_size * args.max_epoch
+    scheduler = transformers.optimization.get_polynomial_decay_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=0,
+        num_training_steps=total_steps,
+    )
+    return optimizer, scheduler
 
 
 def test():
@@ -116,7 +117,7 @@ def test():
     for i in range(len(predictions)):
         curr_result = {}
         curr_result["utt_id"] = 1
-        
+
         if not args.segmentation:
             curr_result["asr_1best"] = dataset[i].utt
         else:
@@ -125,7 +126,7 @@ def test():
         for action_slot in predictions[i]:
             curr_result["pred"].append(action_slot.split('-'))
         output.append([curr_result])
-    with open('data/test_filled.json', 'w') as f:
+    with open('data/test.json', 'w') as f:
         json.dump(output, f, ensure_ascii=False, indent=4)
 
 
@@ -155,11 +156,11 @@ def decode(choice):
 
 if not (args.testing or args.inference):
     num_training_steps = ((len(train_dataset) + args.batch_size - 1) // args.batch_size) * args.max_epoch
-    print('Total training steps: %d' % (num_training_steps),flush=True)
+    print('Total training steps: %d' % (num_training_steps), flush=True)
     optimizer, scheduler = set_optimizer(model, args)
     nsamples, best_result = len(train_dataset), {'dev_acc': 0., 'dev_f1': 0.}
     train_index, step_size = np.arange(nsamples), args.batch_size
-    print('Start training ......',flush=True)
+    print('Start training ......', flush=True)
     metrics, dev_loss = decode('dev')
     dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
     print('Evaluation: \tEpoch: %d\tTime: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
@@ -187,7 +188,8 @@ if not (args.testing or args.inference):
             step_idx += 1
             train_loss_plot.append((step_idx, loss.item()))
         print('Training: \tEpoch: %d\tTime: %.4f\tTraining Loss: %.4f' %
-              (i, time.time() - start_time, epoch_loss / count),flush=True)
+              (i, time.time() - start_time, epoch_loss / count),
+              flush=True)
         torch.cuda.empty_cache()
         gc.collect()
 
@@ -196,7 +198,8 @@ if not (args.testing or args.inference):
         dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
         print(
             'Evaluation: \tEpoch: %d\tTime: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
-            (i, time.time() - start_time, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']),flush=True)
+            (i, time.time() - start_time, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']),
+            flush=True)
         val_acc_plot.append((step_idx, dev_acc))
         if dev_acc > best_result['dev_acc']:
             best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
@@ -207,11 +210,13 @@ if not (args.testing or args.inference):
                 'optim': optimizer.state_dict(),
             }, open(args.model, 'wb'))
             print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' %
-                  (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']),flush=True)
+                  (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']),
+                  flush=True)
 
     print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' %
           (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'],
-           best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']),flush=True)
+           best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']),
+          flush=True)
 
     result_dir = 'exp'
     exp_name.append("lr_" + str(args.lr))
@@ -231,7 +236,8 @@ elif args.testing:
     dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
     print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" %
           (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
-           dev_fscore['fscore']),flush=True)
+           dev_fscore['fscore']),
+          flush=True)
 elif args.inference:
     check_point = torch.load(args.model)
     model.load_state_dict(check_point['model'])
