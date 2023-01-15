@@ -214,7 +214,8 @@ if not (args.testing or args.inference):
            best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']),flush=True)
 
     result_dir = 'exp'
-    exp_name.append(str(args.lr))
+    exp_name.append("lr_" + str(args.lr))
+    exp_name.append("epoch_" + str(args.max_epoch))
     exp_name = '-'.join(exp_name)
     result = [train_loss_plot, val_acc_plot]
     os.makedirs(result_dir, exist_ok=True)

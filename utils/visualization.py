@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import pickle
 
 #>>>> set args here >>>
-files = ['BERT-1e-05', 'WORD2V-LSTM']
-labels = ['BERT', 'BASE']
+files = ['BERT-lr_1e-05-epoch_100', 'WORD2VEC-LSTM-lr_1e-05-epoch_100']
+labels = ['BERT', 'LSTM']
 color = ['r', 'b']
 #>>>>>>>>>>>>>>>>>>>>>>
 figname = ' vs. '.join(files) + '.png'
@@ -28,8 +28,8 @@ for i, result in enumerate(results):
     val_plot = result[1]
     train_step_idx, train_loss = list(zip(*train_plot))
     val_step_idx, val_acc = list(zip(*val_plot))
-    inst1 = ax1.plot(train_step_idx, train_loss, '-', color=color[i], label=labels[i] + '-loss')
-    inst2 = ax2.plot(val_step_idx, val_acc, ':', color=color[i], label=labels[i] + '-acc')
+    inst1 = ax1.plot(train_step_idx, train_loss, '-', color=color[i], label=labels[i] + '-loss', linewidth=0.6)
+    inst2 = ax2.plot(val_step_idx, val_acc, ':', color=color[i], label=labels[i] + '-acc', linewidth=2)
     inst += inst1 + inst2
 legends = [line.get_label() for line in inst]
 plt.legend(inst, legends, loc='center right', frameon=True)
