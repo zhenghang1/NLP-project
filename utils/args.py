@@ -18,7 +18,7 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('--device', type=int, default=0, help='Use which device: -1 -> cpu ; the index of gpu o.w.')
     arg_parser.add_argument('-t','--testing', action='store_true', help='training or evaluation mode')
     arg_parser.add_argument('-i','--inference', action='store_true', help='inference')
-    arg_parser.add_argument('-s','--segmentation', action='store_true', help='inference')
+    arg_parser.add_argument('-s','--segmentation', action='store_true', help='use JIEBA segmentation')
     arg_parser.add_argument('-m','--model', type=str,default='model.bin', help='the path to store/load model')
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')

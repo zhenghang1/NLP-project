@@ -1,5 +1,6 @@
 #coding=utf8
 
+
 class Evaluator():
 
     def acc(self, predictions, labels):

@@ -10,3 +10,4 @@ job.py
 test.slurm
 *.err
 *.out
+**/exp/**
