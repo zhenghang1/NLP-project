@@ -38,7 +38,7 @@ class Vocab():
                 idx = len(self.word2id)
                 self.word2id[word], self.id2word[idx] = idx, word
 
-    # HERE
+    
     def from_train_segmentation(self, filepath, min_freq=1):
         with open(filepath, 'r', encoding='utf-8') as f:
             trains = json.load(f)

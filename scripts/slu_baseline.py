@@ -33,7 +33,7 @@ train_path = os.path.join(args.dataroot, 'train_original.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
 exp_name = []
-# HERE
+
 if not args.segmentation:
     Example.configuration(args.dataroot, train_path=train_path, embedding_path=args.embedding, segmentation=False)
     DevExample.configuration(segmentation=False)
@@ -44,7 +44,10 @@ else:
     exp_name.append('JIEBA')
 
 if not (args.testing or args.inference):
-    train_dataset = Example.load_dataset(train_path)
+    if args.asr:
+        train_dataset = DevExample.load_dataset(train_path)
+    else:
+        train_dataset = Example.load_dataset(train_path)
     dev_dataset = DevExample.load_dataset(dev_path)
     print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)),flush=True)
 elif args.testing:
@@ -83,13 +86,12 @@ else:
     exp_name.append(args.encoder_cell.upper())
 
 
-# HERE
 def set_optimizer(model, args):
     params = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
     grouped_params = [{'params': list(set([p for n, p in params]))}]
     # Weight decay and bias correction
     if args.weight_decay:
-        optimizer = AdamW(grouped_params, lr=args.lr, weight_decay=0.01,correct_bias=True)
+        optimizer = AdamW(grouped_params, lr=args.lr, weight_decay=0.001,correct_bias=True)
     else:
         optimizer = AdamW(grouped_params, lr=args.lr,correct_bias=True)
     total_steps = len(train_dataset)/args.batch_size * args.max_epoch
@@ -114,7 +116,7 @@ def test():
     for i in range(len(predictions)):
         curr_result = {}
         curr_result["utt_id"] = 1
-        # HERE
+        
         if not args.segmentation:
             curr_result["asr_1best"] = dataset[i].utt
         else:

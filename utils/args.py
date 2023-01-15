@@ -20,6 +20,7 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('-i','--inference', action='store_true', help='inference')
     arg_parser.add_argument('-s','--segmentation', action='store_true', help='use JIEBA segmentation')
     arg_parser.add_argument('-m','--model', type=str,default='model.bin', help='the path to store/load model')
+    arg_parser.add_argument('-a','--asr', action='store_true', help='train with asr1_best')
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')
     arg_parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')

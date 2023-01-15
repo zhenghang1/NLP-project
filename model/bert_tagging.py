@@ -16,6 +16,7 @@ class BERTTagging(nn.Module):
         self.dropout_layer = nn.Dropout(p=config.dropout)
         embed_size = self.bert.config.to_dict()['hidden_size']
         self.tag_pad_idx = self.tokenizer.pad_token_id
+        self.dense = nn.Linear(embed_size * 2, embed_size)
         if getattr(self.config, "use_rnn", False):
             self.rnn = getattr(nn, config.encoder_cell)(embed_size, config.hidden_size // 2, num_layers=config.num_layer, bidirectional=True, batch_first=True)
             embed_size = config.hidden_size
@@ -33,8 +34,9 @@ class BERTTagging(nn.Module):
             input_ids.append(ids)
         tag_mask = torch.tensor(tag_mask, dtype=torch.float, device="cuda")
         input_ids = torch.tensor(input_ids, dtype=torch.long, device="cuda")
-        bert_out = self.bert(input_ids=input_ids, attention_mask=tag_mask)
+        bert_out = self.bert(input_ids=input_ids, attention_mask=tag_mask,output_hidden_states=True)
         hiddens = bert_out.last_hidden_state
+        
         if getattr(self.config, "bert_as_embed", False):
             hiddens = hiddens.detach()
         if getattr(self.config, "use_rnn", False):
